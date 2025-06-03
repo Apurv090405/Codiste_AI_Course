@@ -1,0 +1,78 @@
+Embeddings ==> numerical representations of text (or other data) 
+--> Each word, sentence, or document is converted into a vector like [0.23, -0.15, 0.67, ...]
+--> “cat” and “kitten” have similar vectors, while “cat” and “car” are farther apart.
+
+Working:
+--> embedding model processes text and outputs a fixed-length vector. 
+--> vectors encode semantic relationships
+==> LangChain -> embeddings are used to convert text->vectors for storage vector databases.
+
+Use ==> Find the similer meaning or releted things from large datastore.
+
+Code:
+from langchain_openai import OpenAIEmbeddings
+import os
+os.environ["OPENAI_API_KEY"] = "your-openai-api-key"
+embeddings_model = OpenAIEmbeddings(model="text-embedding-ada-002")
+texts = ["Machine learning is a subset of AI.", "Deep learning uses neural networks."]
+embeddings = embeddings_model.embed_documents(texts)
+for text, embedding in zip(texts, embeddings):
+    print(f"Text: {text}")
+    print(f"Embedding (first 5 dimensions): {embedding[:5]}")
+    print(f"Embedding length: {len(embedding)}\n")
+------------------------------------------------------------------------------------------------------------------------------
+Vector Databases ==> store and index high-dimensional vectors (like embeddings)
+--> Allow to retrieve text chunks that are semantically similar to a query by comparing their vectors.
+
+Working:
+1. Text is converted to embeddings
+2. Embeddings are stored in a vector database
+3. query is made, it’s converted to an embedding, 
+4. the database finds the closest vectors (Cosine SIMILARITY).
+
+Example: LanceDB(stores the .lance files) and Chroma(stores the custom key-value store;)
+
+Code:
+from langchain_openai import OpenAIEmbeddings
+from langchain.vectorstores import Chroma
+import os
+os.environ["OPENAI_API_KEY"] = ""
+embeddings_model = OpenAIEmbeddings(model="text-embedding-ada-002")
+documents = [
+    "Machine learning is a subset of artificial intelligence.",
+    "Deep learning uses neural networks to model complex patterns.",
+    "AI is transforming industries through automation."
+]
+metadata = [{"id": i} for i in range(len(documents))]
+vector_store = Chroma.from_texts(
+    texts=documents,
+    embedding=embeddings_model,
+    metadatas=metadata,
+    collection_name="my_collection"
+)
+query = "What is deep learning?"
+results = vector_store.similarity_search(query, k=2) # k=2 value meaning top 2% similar
+for doc in results:
+    print(f"Document: {doc.page_content}")
+    print(f"Metadata: {doc.metadata}\n")
+
+---------------------------------------------------------------------------------------------------------
+MemoryVectorStore ==> stores embeddings in memory (not saved to disk).
+
+Code:
+from langchain.vectorstores import MemoryVectorStore
+vector_store = MemoryVectorStore.from_texts(
+    texts=documents,
+    embedding=embeddings_model,
+    metadatas=metadata
+)
+results = vector_store.similarity_search(query, k=1)
+---------------------------------------------------------------------------------------------------------------
+Retrieval-Augmented Generation (RAG)
+RAG ==> enhances LLM outputs by combining them with relevant information retrieved from a vector database
+
+Working:
+Retrieval: Convert a user query into an embedding and search a vector store for similar documents.
+Augmentation: Inject the retrieved documents into the LLM’s prompt as context.
+Generation: The LLM generates a response using the query and retrieved context.
+
