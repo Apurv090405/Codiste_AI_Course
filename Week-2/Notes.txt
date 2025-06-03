@@ -1,0 +1,92 @@
+LangChain
+LangChain is a framework ==> developing applications with use of LLMs.
+------------------------------------------------------------------------------------------
+PromptTemplate
+PromptTemplate ==> LangChain class to creates reusable prompt structures with placeholders like {topic}, {text}.
+Allows ==> define a prompt once & dynamically insert variables into it.
+
+Code:
+from langchain.prompts import PromptTemplate
+prompt = PromptTemplate(
+    template="Generate 3 blog post ideas about {topic}.",
+    input_variables=["topic"]
+)
+formatted_prompt = prompt.format(topic="LangChain")
+print(formatted_prompt)
+formatted_prompt = prompt.format(topic="Agentic AI")
+print(formatted_prompt)
+-------------------------------------------------------------------------------------------
+ChatPromptTemplate
+ChatPromptTemplate ==> LangChain class for Prompt template for chat models.
+
+Code:
+from langchain_core.prompts import ChatPromptTemplate
+template = ChatPromptTemplate([
+    ("system", "You are a helpful AI bot. Your name is {name}."),
+    ("human", "Hello, how are you doing?"),
+    ("ai", "I'm doing well, thanks!"),
+    ("human", "{user_input}"),
+])
+prompt_value = template.invoke(
+    {
+        "name": "Bob",
+        "user_input": "What is your name?"
+    }
+)
+-------------------------------------------------------------------------------------------------
+LLMChain 
+LLMChain ==> combines a PromptTemplate/ChatPromptTemplate with an LLM to process inputs and generate outputs
+Code:
+from langchain.prompts import PromptTemplate
+from langchain.chains import LLMChain
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
+prompt = PromptTemplate(
+    template="Summarize this text: {text}",
+    input_variables=["text"]
+)
+# Create the LLMChain
+chain = LLMChain(llm=llm, prompt=prompt)
+result = chain.run(text="AI is transforming industries by automating tasks.")
+print(result)
+-----------------------------------------------------------------------------------------------
+Chaining Prompts:
+Chaining Prompts ==> connecting multiple tasks in a sequence
+--> output of one task becomes the input for the next
+--> by manually passing outputs between LLMChain instances.
+
+Code:
+from langchain.prompts import PromptTemplate
+from langchain.chains import LLMChain, SimpleSequentialChain
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
+# Step 1: Summarize
+summarize_prompt = PromptTemplate(
+    template="Summarize this text: {text}",
+    input_variables=["text"]
+)
+summarize_chain = LLMChain(llm, prompt=summarize_prompt)
+# Step 2: Translate
+translate_prompt = PromptTemplate(
+    template="Translate this summary into Gujarati: {summary}",
+    input_variables=["summary"]
+)
+translate_chain = LLMChain(llm, prompt=translate_prompt)
+# Create sequential chain
+sequential_chain = SimpleSequentialChain(chains=[summarize_chain, translate_chain], verbose=True)
+result = sequential_chain.run("AI is transforming industries by automating tasks.")
+print(result)
+-------------------------------------------------------------------------------------------------------
+Template Variables
+Template Variables ==> placeholders in PromptTemplate/ChatPromptTemplate that get replaced with actual values when the prompt is formatted
+from langchain.prompts import PromptTemplate
+prompt = PromptTemplate(
+    template="Write a {length}-word description of {topic} for a {audience} audience.",
+    input_variables=["length", "topic", "audience"]
+)
+formatted_prompt = prompt.format(
+    length="50",
+    topic="Quantum Computing",
+    audience="beginner"
+)
+print(formatted_prompt)
