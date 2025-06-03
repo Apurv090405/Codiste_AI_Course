@@ -1,6 +1,7 @@
 import google.generativeai as genai
 from dotenv import load_dotenv
 import os
+import streamlit as st
 
 # Load environment variables from .env file
 load_dotenv()
@@ -37,7 +38,7 @@ Review: The cornfield is burning. The fire department is better off bringing but
     """Act as a translator. Translate the following English text to Gujarati (formal and informal forms): \
 Text: Would you like to order a coffee?""",
 
-    """Act as a customer service assistant. Reply to this review in a professional tone. \
+    """Act as a customer service assistant. Reply in mail to this review in a professional tone. \
 If positive, thank them; if negative, apologize and offer support.
 Review: This place has hands down the best brunch in town! The avocado toast with poached eggs was incredible, and their freshly squeezed orange juice was the perfect complement. The restaurant has such a bright, cheerful atmosphere with friendly staff who make you feel right at home. I've been here three weekends in a row and plan to keep coming back. Don't miss their homemade pastries - they're to die for!
 """,
@@ -53,14 +54,21 @@ Menu:
 7. Cheese Garlic Bread (₹249)
 8. Coke (₹65)
 9. Masala Lemonade (₹55)
-10. Choco Lava Cake (₹149)"""
+10. Choco Lava Cake (₹149)
+Note: Each order having a CGST of 2.5% and SGST of 2.5%.
+Make a dummy chat and also the bill after end of the order."""
 ]
 
-# Run all prompts and print responses
-for i, prompt in enumerate(prompts, start=1):
-    print(f"\n--- Prompt {i} ---\n")
-    print(prompt.strip())
-    print("\nResponse:")
-    response = get_gemini_response(prompt)
-    print(response)
-    print("\n" + "-" * 100)
+# Streamlit
+st.set_page_config(page_title="Gemini API App")
+st.title("Using Gemini API and the Prompts tempelete generating the response")
+
+select_prompt = st.selectbox("Choose a prompt: ", prompts)
+
+if st.button("Generate Response"):
+    st.subheader("Prompt")
+    st.code(select_prompt)
+    with st.spinner("Generating..."):
+        op = get_gemini_response(select_prompt)
+    st.subheader("Response")
+    st.code(op)
