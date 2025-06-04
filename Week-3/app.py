@@ -2,7 +2,6 @@ import streamlit as st
 import os
 from dotenv import load_dotenv
 import hnswlib
-import numpy as np
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain.prompts import ChatPromptTemplate
 from langchain_core.documents import Document
@@ -23,7 +22,7 @@ os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY
 
 # Initialize Gemini embeddings and LLM
 embeddings_model = GoogleGenerativeAIEmbeddings(model="models/embedding-001", task_type="RETRIEVAL_DOCUMENT")
-llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.3)
+llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.3) # temp = 0.3 for more deterministic not more random and creative 
 
 # Step 1: Generate embeddings
 @st.cache_data
@@ -35,20 +34,26 @@ def generate_embeddings(docs):
         st.error(f"Error generating embeddings: {e}")
         return None
 
-# Step 2: Initialize HNSW (Hierarchical Navigable Small World graphs) index and store embeddings
+# Step 2: Initialize HNSW (Hierarchical Navigable Small World graphs) index and similarity search
+# HNSW uses graph-based indexing for efficient nearest neighbor search.
+# Compared to FAISS, HNSW uses a graph-based approach for approximate nearest neighbor search, while FAISS supports multiple indexing methods (e.g., IVF).
+# HNSW is often preferred for small to medium datasets due to its efficient graph-based search, while FAISS may be faster for large datasets with certain indexing methods.        
 def initialize_hnsw_index(embeddings, docs, metas, dimension):
     try:
-        index = hnswlib.Index(space="cosine", dim=dimension)
-        # ef_construction: how thoroughly the graph is explored
-        # max_ele: Maximum number of items the index can store.
-        # M=16: Number of bi-directional links for each element
-        index.init_index(max_elements=len(embeddings) + 10, ef_construction=100, M=16) 
+        index = hnswlib.Index(space="cosine", dim=dimension)  # Uses cosine distance for similarity search, suitable for high-dimensional text embeddings in HNSW.
+        # Other distance metrics like Euclidean (L2) are supported but less common for text embeddings, which are often normalized for cosine distance.
+        index.init_index(max_elements=len(embeddings) + 10, ef_construction=100, M=16)  
+        # max_elements: Maximum number of items the index can store.
+        # ef_construction: Size of the dynamic candidate list during graph construction, affecting build time and index quality.
+        # M: Number of bi-directional links for each element.
         index.add_items(embeddings, list(range(len(embeddings))))
-        index.set_ef(50)  # Set ef_search similarity search
+        index.set_ef(50)
+        # ef: Size of the dynamic candidate list during similarity search, balancing speed and accuracy.
         return index, docs, metas
     except Exception as e:
         st.error(f"Error initializing HNSW index: {e}")
         return None, docs, metas
+    
 
 # Step 3: Similarity search
 def similarity_search(index, docs, metas, query_embedding, k=2):
