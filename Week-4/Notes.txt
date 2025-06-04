@@ -1,0 +1,7 @@
+Key components of a LangChain agent:
+
+1. LLM: The language model that processes queries and generates responses (e.g., Gemini, GPT, etc.).
+2. Tools: External functions or APIs the agent can call, such as a search engine, calculator, or database query tool.
+3. Memory: A mechanism to store and retrieve conversation history, enabling contextual awareness.
+4. Agent Executor: A controller that manages the interaction between the LLM, tools, and memory, deciding when to call tools or respond directly.
+
