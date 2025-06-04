@@ -6,6 +6,8 @@ import numpy as np
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain.prompts import ChatPromptTemplate
 from langchain_core.documents import Document
+import PyPDF2
+from unstructured.partition.auto import partition
 
 # Load .env
 load_dotenv()
@@ -22,15 +24,6 @@ os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY
 # Initialize Gemini embeddings and LLM
 embeddings_model = GoogleGenerativeAIEmbeddings(model="models/embedding-001", task_type="RETRIEVAL_DOCUMENT")
 llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.3)
-
-# Predefined paragraphs
-documents = [
-    "Artificial Intelligence (AI) in 2025 continues to advance, simulating human intelligence in machines for tasks like reasoning and decision-making.",
-    "Machine learning, a core AI field, uses algorithms to learn from data, powering applications like predictive analytics.",
-    "Deep learning, a subset of machine learning, employs neural networks to process vast datasets, driving innovations in image and speech recognition.",
-    "Natural Language Processing (NLP) enables machines to understand and generate human language, used in chatbots and translation systems."
-]
-metadata = [{"id": i, "source": "AI Knowledge Base 2025"} for i in range(len(documents))]
 
 # Step 1: Generate embeddings
 @st.cache_data
@@ -94,34 +87,68 @@ def create_rag_chain(index, docs, metas):
 
     return retrieve_and_generate
 
+# Function to extract text from uploaded files (PDF or TXT)
+def extract_text_from_file(uploaded_file):
+    try:
+        if uploaded_file.name.endswith(".pdf"):
+            reader = PyPDF2.PdfReader(uploaded_file)
+            text = ""
+            for page in reader.pages:
+                text += page.extract_text() or ""
+            return text
+        elif uploaded_file.name.endswith(".txt"):
+            elements = partition(file=uploaded_file)
+            text = "\n".join([str(el) for el in elements])
+            return text
+        else:
+            raise ValueError("Unsupported file type. Please upload a PDF or TXT file.")
+    except Exception as e:
+        st.error(f"Error extracting text from {uploaded_file.name}: {e}")
+        return None
+
 # Streamlit app
 st.title("RAG Chatbot with Gemini and HNSW")
-st.write("Ask questions about AI based on predefined paragraphs (updated for June 2025).")
+st.write("Upload PDF or TXT Files to create a knowlage base, then ask a question.")
 
-# Generate and store embeddings
-embeddings = generate_embeddings(documents)
-if embeddings is not None:
-    dimension = len(embeddings[0])  # Typically 768 for embedding-001
-    hnsw_index, stored_docs, stored_metadata = initialize_hnsw_index(embeddings, documents, metadata, dimension)
-    
-    if hnsw_index is not None:
-        # Create RAG chain
-        rag_chain = create_rag_chain(hnsw_index, stored_docs, stored_metadata)
-        
-        # User input
-        query = st.text_input("Enter your question:", "What is machine learning?")
-        if st.button("Submit"):
-            if query:
-                with st.spinner("Generating answer..."):
-                    answer, retrieved_docs = rag_chain(query)
-                    st.write("**Answer**:")
-                    st.write(answer)
-                    st.write("**Retrieved Documents**:")
-                    for i, doc in enumerate(retrieved_docs, 1):
-                        st.write(f"{i}. {doc.page_content} (Metadata: {doc.metadata})")
+upload_file = st.file_uploader("Upload PDF or TXT files", type=["pdf", "txt"], accept_multiple_files=True)
+if upload_file:
+    documents = []
+    metadata = []
+    for i, file in enumerate(upload_file):
+        text = extract_text_from_file(file)
+        if text:
+            documents.append(text)
+            metadata.append({"id": i, "source": file.name})
+    if documents:
+        st.success(f"Successfully extracted {len(documents)} documents.")
+        # Generate and store embeddings
+        embeddings = generate_embeddings(documents)
+        if embeddings is not None:
+            dimension = len(embeddings[0])  # Typically 768 for embedding-001
+            hnsw_index, stored_docs, stored_metadata = initialize_hnsw_index(embeddings, documents, metadata, dimension)
+            
+            if hnsw_index is not None:
+                # Create RAG chain
+                rag_chain = create_rag_chain(hnsw_index, stored_docs, stored_metadata)
+                
+                # User input
+                query = st.text_input("Enter your question:", "What is machine learning?")
+                if st.button("Submit"):
+                    if query:
+                        with st.spinner("Generating answer..."):
+                            answer, retrieved_docs = rag_chain(query)
+                            st.write("**Answer**:")
+                            st.write(answer)
+                            st.write("**Retrieved Documents**:")
+                            for i, doc in enumerate(retrieved_docs, 1):
+                                st.write(f"{i}")
+                    else:
+                        st.write("Please enter a question.")
             else:
-                st.write("Please enter a question.")
+                st.error("Failed to initialize HNSW index.")
+        else:
+            st.error("Failed to generate embeddings.")
     else:
-        st.error("Failed to initialize HNSW index.")
+        st.error("Documents could not be extracted from the uploaded files.")
 else:
-    st.error("Failed to generate embeddings.")
+    st.write("Please upload at least one PDF or TXT file to get started.")
