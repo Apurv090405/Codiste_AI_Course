@@ -1,0 +1,7 @@
+fastapi
+uvicorn 
+flask
+python-dotenv 
+gnews
+google-generativeai 
+langgraph
